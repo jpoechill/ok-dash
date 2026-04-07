@@ -6,9 +6,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
+import { usePathname } from "next/navigation";
 import type { GrantItem, WishlistItem } from "@/lib/admin-mock-data";
 import type { AppSnapshot } from "@/lib/app-snapshot";
 import type {
@@ -66,7 +68,13 @@ async function postData(action: string, payload: unknown) {
   }
 }
 
+function isLoginPath(path: string) {
+  return path === "/login" || path.startsWith("/login/");
+}
+
 export function DashboardProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const prevPathname = useRef<string | null>(null);
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -87,6 +95,16 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void loadSnapshot();
   }, [loadSnapshot]);
+
+  /** Provider stays mounted across /login → app navigation; refetch after sign-in when cookie is present. */
+  useEffect(() => {
+    const prev = prevPathname.current;
+    prevPathname.current = pathname;
+    if (prev === null) return;
+    if (isLoginPath(prev) && !isLoginPath(pathname)) {
+      void loadSnapshot();
+    }
+  }, [pathname, loadSnapshot]);
 
   const addStudent = useCallback(async (input: NewStudentInput) => {
     await postData("addStudent", input);
