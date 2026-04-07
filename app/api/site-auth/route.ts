@@ -1,5 +1,18 @@
 import { timingSafeEqual } from "crypto";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
+import { getSiteAuthConfig } from "@/lib/site-auth-config";
+
+export async function GET() {
+  const auth = getSiteAuthConfig();
+  if (!auth) {
+    return NextResponse.json({ authEnabled: false, authenticated: false });
+  }
+  const cookieStore = await cookies();
+  const cookie = cookieStore.get("site_access")?.value;
+  const authenticated = cookie === auth.token;
+  return NextResponse.json({ authEnabled: true, authenticated });
+}
 
 function safeEqualString(a: string, b: string): boolean {
   const ba = Buffer.from(a, "utf8");
@@ -9,11 +22,11 @@ function safeEqualString(a: string, b: string): boolean {
 }
 
 export async function POST(request: Request) {
-  const expected = process.env.SITE_PASSWORD;
-  const token = process.env.SITE_AUTH_TOKEN;
-  if (!expected?.length || !token?.length) {
-    return NextResponse.json({ error: "Site authentication is not configured" }, { status: 503 });
+  const auth = getSiteAuthConfig();
+  if (!auth) {
+    return NextResponse.json({ ok: true, authDisabled: true });
   }
+  const { password: expected, token } = auth;
 
   let body: { password?: string };
   try {

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { getSiteAuthConfig } from "@/lib/site-auth-config";
 
 function isPublicPath(pathname: string): boolean {
   if (pathname === "/login" || pathname.startsWith("/login/")) return true;
@@ -12,13 +13,12 @@ function isPublicPath(pathname: string): boolean {
 }
 
 export function middleware(request: NextRequest) {
-  const password = process.env.SITE_PASSWORD;
-  const sessionToken = process.env.SITE_AUTH_TOKEN;
-
-  if (!password?.length || !sessionToken?.length) {
+  const auth = getSiteAuthConfig();
+  if (!auth) {
     return NextResponse.next();
   }
 
+  const { token: sessionToken } = auth;
   const { pathname } = request.nextUrl;
   const cookie = request.cookies.get("site_access")?.value;
   const authed = cookie === sessionToken;

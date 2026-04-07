@@ -13,6 +13,7 @@ const navItems = [
 const secondaryNavItems = [
   { href: "/wishlist", label: "Wishlist" },
   { href: "/grants", label: "Grants" },
+  { href: "/grant-tools", label: "Grant Tools" },
   { href: "/expenses", label: "Expenses and Budget" },
 ];
 
