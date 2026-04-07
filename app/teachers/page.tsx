@@ -6,12 +6,27 @@ import { useDashboard } from "@/components/dashboard-provider";
 import Link from "next/link";
 
 export default function TeachersPage() {
-  const { dances, teachers, ready } = useDashboard();
+  const { dances, teachers, ready, initialized, loadError } = useDashboard();
+
+  if (!initialized) {
+    return (
+      <AppShell title="Teachers" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Teachers" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
       title="Teachers"
-      subtitle="Teachers leading this year's dances. Additions are saved in this browser."
+      subtitle="Teachers leading this year's dances. Stored in Supabase."
     >
       <AddTeacherForm />
 

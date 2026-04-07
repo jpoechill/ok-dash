@@ -34,12 +34,12 @@ export function AddDanceForm({
     );
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!name.trim() || !leadTeacherId) return;
     const mins = Number(durationMinutes);
     if (!Number.isFinite(mins) || mins < 1) return;
-    addDance({
+    await addDance({
       name,
       durationMinutes: mins,
       leadTeacherId,

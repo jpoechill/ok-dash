@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { budgetCategories } from "@/lib/admin-mock-data";
+import { useDashboard } from "@/components/dashboard-provider";
 
 export default function BudgetsPage() {
+  const { budgetCategories, initialized, loadError } = useDashboard();
   const [bufferPercent, setBufferPercent] = useState(10);
 
   const totals = useMemo(() => {
@@ -12,7 +13,22 @@ export default function BudgetsPage() {
     const spent = budgetCategories.reduce((sum, item) => sum + item.spent, 0);
     const forecast = Math.round(planned * (1 + bufferPercent / 100));
     return { planned, spent, forecast };
-  }, [bufferPercent]);
+  }, [bufferPercent, budgetCategories]);
+
+  if (!initialized) {
+    return (
+      <AppShell title="Budgets" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Budgets" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

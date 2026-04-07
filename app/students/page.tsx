@@ -13,7 +13,7 @@ type SortKey = "student" | "age" | "level" | "size" | "phone" | "email" | "relat
 type SortDirection = "asc" | "desc";
 
 export default function StudentsPage() {
-  const { students, dances, ready } = useDashboard();
+  const { students, dances, ready, initialized, loadError } = useDashboard();
   const [sortKey, setSortKey] = useState<SortKey>("student");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [searchQuery, setSearchQuery] = useState("");
@@ -111,10 +111,25 @@ export default function StudentsPage() {
   const hasActiveFilters =
     searchQuery.trim() !== "" || filterDanceId !== "" || levelFilter !== "all" || relationFilter !== "all";
 
+  if (!initialized) {
+    return (
+      <AppShell title="Students" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Students" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       title="Students"
-      subtitle="Students participating in this year's dances. Additions are saved in this browser."
+      subtitle="Students participating in this year's dances. Roster is stored in Supabase."
     >
       <div className="grid gap-2">
         <AddStudentForm compact title="Add student" />

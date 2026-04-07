@@ -7,13 +7,28 @@ import { useDashboard } from "@/components/dashboard-provider";
 import { partitionDancesBySource } from "@/lib/dance-utils";
 
 export default function DancesPage() {
-  const { dances, teachers, ready } = useDashboard();
+  const { dances, teachers, ready, initialized, loadError } = useDashboard();
   const { troupe, guest } = partitionDancesBySource(dances);
+
+  if (!initialized) {
+    return (
+      <AppShell title="Dances" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Dances" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
       title="Dances"
-      subtitle="Dance catalog with music files. Additions are saved in this browser."
+      subtitle="Dance catalog with music files. Stored in Supabase."
     >
       <AddDanceForm />
 

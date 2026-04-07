@@ -7,13 +7,27 @@ import { useGrants } from "@/lib/use-grants";
 export default function GrantDetailPage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
-  const { grants, ready, updateGrant } = useGrants();
+  const { grants, ready, updateGrant, initialized, loadError } = useGrants();
   const grant = grants.find((item) => item.id === id);
 
+  if (!initialized) {
+    return (
+      <AppShell title="Grant" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading grant details…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Grant" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
   if (!ready) {
     return (
-      <AppShell title="Grant" subtitle="Loading...">
-        <p className="text-sm text-zinc-600">Loading grant details...</p>
+      <AppShell title="Grant" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading grant details…</p>
       </AppShell>
     );
   }

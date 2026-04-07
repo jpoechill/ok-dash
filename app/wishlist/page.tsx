@@ -18,8 +18,16 @@ const wishlistCategories: WishlistItem["category"][] = [
 
 export default function WishlistPage() {
   const { data: session } = useSession();
-  const { items: wishlist, addItem, removeItem, reorderItems, updateItemNote, ready: wishlistReady } =
-    useWishlist();
+  const {
+    items: wishlist,
+    addItem,
+    removeItem,
+    reorderItems,
+    updateItemNote,
+    ready: wishlistReady,
+    initialized: wishlistInitialized,
+    loadError: wishlistLoadError,
+  } = useWishlist();
   const [draggingWishIndex, setDraggingWishIndex] = useState<number | null>(null);
   const [expandedItemId, setExpandedItemId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -32,7 +40,7 @@ export default function WishlistPage() {
 
   const wishlistTotal = wishlist.reduce((sum, item) => sum + item.estimatedAmount, 0);
 
-  function handleAddWishlist(e: FormEvent) {
+  async function handleAddWishlist(e: FormEvent) {
     e.preventDefault();
     const amount = Number(wishAmount);
     if (!wishLabel.trim() || !Number.isFinite(amount) || amount < 0) return;
@@ -40,7 +48,7 @@ export default function WishlistPage() {
       session?.user?.name?.trim() ||
       session?.user?.email?.trim() ||
       "Guest";
-    addItem({
+    await addItem({
       label: wishLabel.trim(),
       estimatedAmount: amount,
       category: wishCategory,
@@ -66,15 +74,30 @@ export default function WishlistPage() {
     setNoteDraft(item.note ?? "");
   }
 
-  function saveItemNote(itemId: string) {
-    updateItemNote(itemId, noteDraft);
+  async function saveItemNote(itemId: string) {
+    await updateItemNote(itemId, noteDraft);
     setEditingItemId(null);
+  }
+
+  if (!wishlistInitialized) {
+    return (
+      <AppShell title="Wishlist" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (wishlistLoadError) {
+    return (
+      <AppShell title="Wishlist" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{wishlistLoadError}</p>
+      </AppShell>
+    );
   }
 
   return (
     <AppShell
       title="Wishlist"
-      subtitle="Planned purchases not in the expense log yet. Saved in this browser. Drag a row to reorder."
+      subtitle="Planned purchases not in the expense log yet. Stored in Supabase. Drag a row to reorder."
     >
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

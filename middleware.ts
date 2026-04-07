@@ -38,6 +38,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Do not redirect API calls: fetch() follows 302 and can receive 200 HTML from /login,
+  // which looks like success and breaks mutations (e.g. add student) without persisting.
+  if (pathname.startsWith("/api/") && !isPublicPath(pathname)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const login = new URL("/login", request.url);
   const back = pathname + (request.nextUrl.search || "");
   login.searchParams.set("from", back);

@@ -7,13 +7,27 @@ import { useDashboard } from "@/components/dashboard-provider";
 import { DanceLineupTable } from "@/components/dance-lineup-table";
 import { formatStudentLevel } from "@/lib/format-level";
 import { partitionDancesBySource } from "@/lib/dance-utils";
-import { currentYearPlan } from "@/lib/mvp-data";
 import Link from "next/link";
 
 export default function Home() {
-  const { students, dances, teachers, ready } = useDashboard();
+  const { students, dances, teachers, currentYearPlan, ready, initialized, loadError } = useDashboard();
   const totalShowMinutes = dances.reduce((total, dance) => total + dance.durationMinutes, 0);
   const { troupe, guest } = partitionDancesBySource(dances);
+
+  if (!initialized) {
+    return (
+      <AppShell title="Overview" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading dashboard…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Overview" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell
@@ -23,7 +37,7 @@ export default function Home() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="Dances this year" value={ready ? String(dances.length) : "…"} />
         <StatCard label="Students" value={ready ? String(students.length) : "…"} />
-        <StatCard label="Teachers" value={String(teachers.length)} />
+        <StatCard label="Teachers" value={ready ? String(teachers.length) : "…"} />
         <StatCard label="Total show minutes" value={ready ? String(totalShowMinutes) : "…"} />
       </section>
 

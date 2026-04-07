@@ -17,10 +17,10 @@ export function AddTeacherForm({
   const [fullName, setFullName] = useState("");
   const [specialty, setSpecialty] = useState("");
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!fullName.trim() || !specialty.trim()) return;
-    addTeacher({ fullName, specialty } satisfies NewTeacherInput);
+    await addTeacher({ fullName, specialty } satisfies NewTeacherInput);
     setFullName("");
     setSpecialty("");
     setOpen(false);

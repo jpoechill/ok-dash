@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { grantItems } from "@/lib/admin-mock-data";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 
 export async function generateMetadata({
   params,
@@ -7,19 +7,27 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const grant = grantItems.find((g) => g.id === id);
-  if (!grant) {
+  try {
+    const sb = createAdminSupabaseClient();
+    const { data } = await sb.from("grants").select("name, focus").eq("id", id).maybeSingle();
+    if (!data || typeof data.name !== "string") {
+      return {
+        title: "Grant",
+        description: "Grant details",
+      };
+    }
+    const focus = typeof data.focus === "string" ? data.focus : "";
+    const description = focus.length > 160 ? `${focus.slice(0, 157)}…` : focus;
+    return {
+      title: `${data.name} · Grants`,
+      description: description || "Grant details",
+    };
+  } catch {
     return {
       title: "Grant",
       description: "Grant details",
     };
   }
-  const description =
-    grant.focus.length > 160 ? `${grant.focus.slice(0, 157)}…` : grant.focus;
-  return {
-    title: `${grant.name} · Grants`,
-    description,
-  };
 }
 
 export default function GrantDetailLayout({ children }: { children: React.ReactNode }) {

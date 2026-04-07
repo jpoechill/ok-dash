@@ -2,20 +2,21 @@
 
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/app-shell";
-import { budgetCategories, expenseItems } from "@/lib/admin-mock-data";
+import { useDashboard } from "@/components/dashboard-provider";
 
 export default function ExpensesPage() {
+  const { expenses: expenseItems, budgetCategories, initialized, loadError } = useDashboard();
   const [activeTab, setActiveTab] = useState<"expenses" | "remaining">("expenses");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const categories = useMemo(
     () => ["All", ...Array.from(new Set(expenseItems.map((item) => item.category)))],
-    [],
+    [expenseItems],
   );
 
   const filteredExpenses = useMemo(
     () =>
       expenseItems.filter((item) => (categoryFilter === "All" ? true : item.category === categoryFilter)),
-    [categoryFilter],
+    [categoryFilter, expenseItems],
   );
 
   const totalSpent = filteredExpenses.reduce((sum, item) => sum + item.amount, 0);
@@ -33,7 +34,7 @@ export default function ExpensesPage() {
           usedPercent,
         };
       }),
-    [],
+    [budgetCategories],
   );
   const totalRemaining = remainingByCategory.reduce((sum, category) => sum + category.remaining, 0);
   const totalBudgetPlanned = budgetCategories.reduce((sum, category) => sum + category.planned, 0);
@@ -42,6 +43,21 @@ export default function ExpensesPage() {
     .filter((item) => item.status === "pending")
     .reduce((sum, item) => sum + item.amount, 0);
   const availableAfterPending = Math.max(0, totalBudgetPlanned - totalBudgetSpent - pendingFromAllExpenses);
+
+  if (!initialized) {
+    return (
+      <AppShell title="Expenses" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Expenses" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

@@ -9,186 +9,202 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { GrantItem, WishlistItem } from "@/lib/admin-mock-data";
+import type { AppSnapshot } from "@/lib/app-snapshot";
+import type {
+  NewDanceInput,
+  NewGrantInput,
+  NewStudentInput,
+  NewTeacherInput,
+} from "@/lib/dashboard-input-types";
 import type { Dance, Student, Teacher } from "@/lib/mvp-data";
-import {
-  dances as seedDances,
-  students as seedStudents,
-  teachers as seedTeachers,
-} from "@/lib/mvp-data";
-
-const STORAGE_STUDENTS = "dashboard-additional-students";
-const STORAGE_DANCES = "dashboard-additional-dances";
-const STORAGE_TEACHERS = "dashboard-additional-teachers";
-const STORAGE_STUDENT_EDITS = "dashboard-edited-students";
-
-function loadJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-export type NewStudentInput = {
-  fullName: string;
-  age: number;
-  level: Student["level"];
-  shirtSize: Student["shirtSize"];
-  phone: string;
-  email: string;
-  relation: "parent" | "self";
-  parentName?: string;
-};
-
-export type NewDanceInput = {
-  name: string;
-  durationMinutes: number;
-  leadTeacherId: string;
-  studentIds: string[];
-  musicFileUrl?: string;
-  /** Defaults to troupe repertoire. */
-  source?: Dance["source"];
-};
-
-export type NewTeacherInput = {
-  fullName: string;
-  specialty: string;
-};
 
 type DashboardContextValue = {
   students: Student[];
   dances: Dance[];
   teachers: Teacher[];
-  addStudent: (input: NewStudentInput) => Student;
-  updateStudent: (id: string, input: NewStudentInput) => Student | null;
-  addDance: (input: NewDanceInput) => Dance;
-  addTeacher: (input: NewTeacherInput) => Teacher;
-  /** True after browser storage has been merged (avoid hydration mismatch in lists). */
+  grants: GrantItem[];
+  expenses: AppSnapshot["expenses"];
+  wishlist: WishlistItem[];
+  programMilestones: AppSnapshot["programMilestones"];
+  budgetCategories: AppSnapshot["budgetCategories"];
+  currentYearPlan: AppSnapshot["currentYearPlan"];
+  addStudent: (input: NewStudentInput) => Promise<void>;
+  updateStudent: (id: string, input: NewStudentInput) => Promise<void>;
+  addDance: (input: NewDanceInput) => Promise<void>;
+  addTeacher: (input: NewTeacherInput) => Promise<void>;
+  addGrant: (input: NewGrantInput) => Promise<void>;
+  updateGrant: (id: string, patch: Partial<Pick<GrantItem, "status" | "fundingResult">>) => Promise<void>;
+  addWishlistItem: (input: Omit<WishlistItem, "id">) => Promise<void>;
+  removeWishlistItem: (id: string) => Promise<void>;
+  reorderWishlist: (orderedIds: string[]) => Promise<void>;
+  updateWishlistNote: (id: string, note: string) => Promise<void>;
+  /** True after the first GET /api/data attempt finishes. */
+  initialized: boolean;
+  /** True when data is available (no load error). */
   ready: boolean;
+  loadError: string | null;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
 
+const fetchDataOptions: RequestInit = {
+  credentials: "same-origin",
+  cache: "no-store",
+};
+
+async function postData(action: string, payload: unknown) {
+  const res = await fetch("/api/data", {
+    ...fetchDataOptions,
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, payload }),
+  });
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+}
+
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const [extraStudents, setExtraStudents] = useState<Student[]>([]);
-  const [extraDances, setExtraDances] = useState<Dance[]>([]);
-  const [extraTeachers, setExtraTeachers] = useState<Teacher[]>([]);
-  const [editedStudentsById, setEditedStudentsById] = useState<Record<string, Student>>({});
-  const [ready, setReady] = useState(false);
+  const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [initialized, setInitialized] = useState(false);
 
-  useEffect(() => {
-    setExtraStudents(loadJson(STORAGE_STUDENTS, []));
-    setExtraDances(
-      loadJson<Array<Dance & { source?: Dance["source"] }>>(STORAGE_DANCES, []).map((dance) => ({
-        ...dance,
-        source: dance.source ?? "troupe",
-      })),
-    );
-    setExtraTeachers(loadJson(STORAGE_TEACHERS, []));
-    setEditedStudentsById(loadJson(STORAGE_STUDENT_EDITS, {}));
-    setReady(true);
+  const loadSnapshot = useCallback(async () => {
+    const res = await fetch("/api/data", fetchDataOptions);
+    const data = (await res.json().catch(() => ({}))) as AppSnapshot & { error?: string };
+    setInitialized(true);
+    if (!res.ok) {
+      setLoadError(data.error || "Failed to load data");
+      setSnapshot(null);
+      return;
+    }
+    setLoadError(null);
+    setSnapshot(data as AppSnapshot);
   }, []);
 
   useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(STORAGE_STUDENTS, JSON.stringify(extraStudents));
-  }, [extraStudents, ready]);
+    void loadSnapshot();
+  }, [loadSnapshot]);
 
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(STORAGE_DANCES, JSON.stringify(extraDances));
-  }, [extraDances, ready]);
+  const addStudent = useCallback(async (input: NewStudentInput) => {
+    await postData("addStudent", input);
+    await loadSnapshot();
+  }, [loadSnapshot]);
 
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(STORAGE_TEACHERS, JSON.stringify(extraTeachers));
-  }, [extraTeachers, ready]);
-
-  useEffect(() => {
-    if (!ready) return;
-    localStorage.setItem(STORAGE_STUDENT_EDITS, JSON.stringify(editedStudentsById));
-  }, [editedStudentsById, ready]);
-
-  const students = useMemo(
-    () =>
-      [...seedStudents, ...extraStudents].map((student) => editedStudentsById[student.id] ?? student),
-    [extraStudents, editedStudentsById],
+  const updateStudent = useCallback(
+    async (id: string, input: NewStudentInput) => {
+      await postData("updateStudent", { id, ...input });
+      await loadSnapshot();
+    },
+    [loadSnapshot],
   );
-  const dances = useMemo(() => [...seedDances, ...extraDances], [extraDances]);
-  const teachers = useMemo(() => [...seedTeachers, ...extraTeachers], [extraTeachers]);
 
-  const addStudent = useCallback((input: NewStudentInput) => {
-    const id = `s-${Date.now()}`;
-    const student: Student = {
-      id,
-      fullName: input.fullName.trim(),
-      age: input.age,
-      level: input.level,
-      shirtSize: input.shirtSize,
-      phone: input.phone.trim(),
-      email: input.email.trim(),
-      relation: input.relation,
-      parentName: input.relation === "parent" ? input.parentName?.trim() : undefined,
-      profileImagePlaceholder: `profile-${id}.jpg`,
-    };
-    setExtraStudents((prev) => [...prev, student]);
-    return student;
-  }, []);
+  const addDance = useCallback(async (input: NewDanceInput) => {
+    await postData("addDance", input);
+    await loadSnapshot();
+  }, [loadSnapshot]);
 
-  const updateStudent = useCallback((id: string, input: NewStudentInput) => {
-    const existingStudent = [...seedStudents, ...extraStudents].find((student) => student.id === id);
-    if (!existingStudent) return null;
+  const addTeacher = useCallback(async (input: NewTeacherInput) => {
+    await postData("addTeacher", input);
+    await loadSnapshot();
+  }, [loadSnapshot]);
 
-    const updatedStudent: Student = {
-      ...existingStudent,
-      fullName: input.fullName.trim(),
-      age: input.age,
-      level: input.level,
-      shirtSize: input.shirtSize,
-      phone: input.phone.trim(),
-      email: input.email.trim(),
-      relation: input.relation,
-      parentName: input.relation === "parent" ? input.parentName?.trim() : undefined,
-    };
+  const addGrant = useCallback(async (input: NewGrantInput) => {
+    await postData("addGrant", input);
+    await loadSnapshot();
+  }, [loadSnapshot]);
 
-    setEditedStudentsById((prev) => ({ ...prev, [id]: updatedStudent }));
-    return updatedStudent;
-  }, [extraStudents]);
-
-  const addDance = useCallback((input: NewDanceInput) => {
-    const id = `d-${Date.now()}`;
-    const dance: Dance = {
-      id,
-      name: input.name.trim(),
-      source: input.source ?? "troupe",
-      durationMinutes: input.durationMinutes,
-      leadTeacherId: input.leadTeacherId,
-      studentIds: [...input.studentIds],
-      musicFileUrl: input.musicFileUrl?.trim() || "/music/placeholder.mp3",
-    };
-    setExtraDances((prev) => [...prev, dance]);
-    return dance;
-  }, []);
-
-  const addTeacher = useCallback((input: NewTeacherInput) => {
-    const id = `t-${Date.now()}`;
-    const teacher: Teacher = {
-      id,
-      fullName: input.fullName.trim(),
-      specialty: input.specialty.trim(),
-      profileImagePlaceholder: `profile-${id}.jpg`,
-    };
-    setExtraTeachers((prev) => [...prev, teacher]);
-    return teacher;
-  }, []);
-
-  const value = useMemo(
-    () => ({ students, dances, teachers, addStudent, updateStudent, addDance, addTeacher, ready }),
-    [students, dances, teachers, addStudent, updateStudent, addDance, addTeacher, ready],
+  const updateGrant = useCallback(
+    async (id: string, patch: Partial<Pick<GrantItem, "status" | "fundingResult">>) => {
+      await postData("updateGrant", { id, patch });
+      await loadSnapshot();
+    },
+    [loadSnapshot],
   );
+
+  const addWishlistItem = useCallback(async (input: Omit<WishlistItem, "id">) => {
+    await postData("addWishlistItem", input);
+    await loadSnapshot();
+  }, [loadSnapshot]);
+
+  const removeWishlistItem = useCallback(async (id: string) => {
+    await postData("removeWishlistItem", { id });
+    await loadSnapshot();
+  }, [loadSnapshot]);
+
+  const reorderWishlist = useCallback(
+    async (orderedIds: string[]) => {
+      await postData("reorderWishlist", { orderedIds });
+      await loadSnapshot();
+    },
+    [loadSnapshot],
+  );
+
+  const updateWishlistNote = useCallback(async (id: string, note: string) => {
+    await postData("updateWishlistNote", { id, note });
+    await loadSnapshot();
+  }, [loadSnapshot]);
+
+  const value = useMemo((): DashboardContextValue => {
+    const empty: AppSnapshot = {
+      students: [],
+      teachers: [],
+      dances: [],
+      grants: [],
+      expenses: [],
+      wishlist: [],
+      programMilestones: [],
+      budgetCategories: [],
+      currentYearPlan: {
+        year: new Date().getFullYear(),
+        theme: "",
+        notes: "",
+        danceIds: [],
+      },
+    };
+    const s = snapshot ?? empty;
+    const ready = initialized && !loadError && snapshot !== null;
+    return {
+      students: s.students,
+      dances: s.dances,
+      teachers: s.teachers,
+      grants: s.grants,
+      expenses: s.expenses,
+      wishlist: s.wishlist,
+      programMilestones: s.programMilestones,
+      budgetCategories: s.budgetCategories,
+      currentYearPlan: s.currentYearPlan,
+      addStudent,
+      updateStudent,
+      addDance,
+      addTeacher,
+      addGrant,
+      updateGrant,
+      addWishlistItem,
+      removeWishlistItem,
+      reorderWishlist,
+      updateWishlistNote,
+      initialized,
+      ready,
+      loadError,
+    };
+  }, [
+    snapshot,
+    loadError,
+    initialized,
+    addStudent,
+    updateStudent,
+    addDance,
+    addTeacher,
+    addGrant,
+    updateGrant,
+    addWishlistItem,
+    removeWishlistItem,
+    reorderWishlist,
+    updateWishlistNote,
+  ]);
 
   return <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>;
 }
@@ -200,3 +216,5 @@ export function useDashboard() {
   }
   return ctx;
 }
+
+export type { NewStudentInput, NewDanceInput, NewTeacherInput } from "@/lib/dashboard-input-types";

@@ -32,12 +32,12 @@ export function AddStudentForm({
   const [relation, setRelation] = useState<"self" | "parent">("self");
   const [parentName, setParentName] = useState("");
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     const ageNum = Number(age);
     if (!fullName.trim() || !Number.isFinite(ageNum) || ageNum < 1) return;
     if (relation === "parent" && !parentName.trim()) return;
-    addStudent({
+    await addStudent({
       fullName,
       age: ageNum,
       level,

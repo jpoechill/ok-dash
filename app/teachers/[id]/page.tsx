@@ -9,19 +9,34 @@ import { partitionDancesBySource } from "@/lib/dance-utils";
 export default function TeacherProfilePage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
-  const { students, dances, teachers, ready } = useDashboard();
+  const { students, dances, teachers, initialized, loadError, ready } = useDashboard();
 
   const teacher = teachers.find((item) => item.id === id);
-  if (!teacher) {
-    notFound();
-  }
 
-  if (!ready) {
+  if (!initialized) {
     return (
-      <AppShell title={teacher.fullName} subtitle="Teacher profile">
+      <AppShell title="Teachers" subtitle="Loading…">
         <p className="text-sm text-zinc-600">Loading…</p>
       </AppShell>
     );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Teachers" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
+  if (!ready) {
+    return (
+      <AppShell title="Teachers" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+
+  if (!teacher) {
+    notFound();
   }
 
   const ledDances = dances.filter((dance) => dance.leadTeacherId === teacher.id);

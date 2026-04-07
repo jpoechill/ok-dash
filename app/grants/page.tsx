@@ -364,7 +364,7 @@ function GrantsTableBlock({
 }
 
 export default function GrantsPage() {
-  const { grants, addGrant, ready } = useGrants();
+  const { grants, addGrant, ready, initialized, loadError } = useGrants();
   const [sortColumn, setSortColumn] = useState<GrantSortColumn>("amount");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
@@ -452,13 +452,13 @@ export default function GrantsPage() {
     return `${diffDays} day${diffDays === 1 ? "" : "s"} left`;
   }
 
-  function handleAddGrant(e: FormEvent) {
+  async function handleAddGrant(e: FormEvent) {
     e.preventDefault();
     const amount = Number(potentialAmount);
     if (!name.trim() || !funder.trim() || !dueDate || !focus.trim() || !Number.isFinite(amount) || amount < 0) {
       return;
     }
-    addGrant({
+    await addGrant({
       name,
       funder,
       status,
@@ -476,6 +476,21 @@ export default function GrantsPage() {
     setNotes("");
     setStatus("to_apply");
     setFundingResult("pending");
+  }
+
+  if (!initialized) {
+    return (
+      <AppShell title="Grants" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Grants" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
   }
 
   return (

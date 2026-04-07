@@ -10,11 +10,27 @@ import { formatStudentLevel } from "@/lib/format-level";
 export default function DanceProfilePage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
-  const { students, dances, teachers, ready } = useDashboard();
+  const { students, dances, teachers, initialized, loadError, ready } = useDashboard();
 
   const shellTitle = "Dances";
-  const shellSubtitle = "Dance catalog with music files. Additions are saved in this browser.";
+  const shellSubtitle = "Dance catalog with music files. Stored in Supabase.";
 
+  const dance = dances.find((item) => item.id === id);
+
+  if (!initialized) {
+    return (
+      <AppShell title={shellTitle} subtitle={shellSubtitle}>
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title={shellTitle} subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
   if (!ready) {
     return (
       <AppShell title={shellTitle} subtitle={shellSubtitle}>
@@ -23,7 +39,6 @@ export default function DanceProfilePage() {
     );
   }
 
-  const dance = dances.find((item) => item.id === id);
   if (!dance) {
     notFound();
   }

@@ -14,7 +14,7 @@ const sizes: NewStudentInput["shirtSize"][] = ["XS", "S", "M", "L", "XL"];
 export default function StudentProfilePage() {
   const params = useParams();
   const id = typeof params.id === "string" ? params.id : "";
-  const { students, dances, teachers, updateStudent, ready } = useDashboard();
+  const { students, dances, teachers, updateStudent, initialized, loadError, ready } = useDashboard();
   const [editing, setEditing] = useState(false);
   const [fullName, setFullName] = useState("");
   const [age, setAge] = useState("");
@@ -25,15 +25,8 @@ export default function StudentProfilePage() {
   const [relation, setRelation] = useState<"self" | "parent">("self");
   const [parentName, setParentName] = useState("");
 
-  if (!ready) {
-    return (
-      <AppShell title="Student" subtitle="Loading…">
-        <p className="text-sm text-zinc-600">Loading profile…</p>
-      </AppShell>
-    );
-  }
-
   const student = students.find((item) => item.id === id);
+
   useEffect(() => {
     if (!student) return;
     setFullName(student.fullName);
@@ -46,17 +39,38 @@ export default function StudentProfilePage() {
     setParentName(student.parentName ?? "");
   }, [student]);
 
+  if (!initialized) {
+    return (
+      <AppShell title="Student" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading profile…</p>
+      </AppShell>
+    );
+  }
+  if (loadError) {
+    return (
+      <AppShell title="Student" subtitle="Could not load data">
+        <p className="text-sm text-rose-600">{loadError}</p>
+      </AppShell>
+    );
+  }
+  if (!ready) {
+    return (
+      <AppShell title="Student" subtitle="Loading…">
+        <p className="text-sm text-zinc-600">Loading profile…</p>
+      </AppShell>
+    );
+  }
   if (!student) {
     notFound();
   }
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!student) return;
     const ageNum = Number(age);
     if (!fullName.trim() || !Number.isFinite(ageNum) || ageNum < 1) return;
     if (relation === "parent" && !parentName.trim()) return;
-    updateStudent(student.id, {
+    await updateStudent(student.id, {
       fullName,
       age: ageNum,
       level,
