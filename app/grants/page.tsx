@@ -9,6 +9,7 @@ import { useGrants } from "@/lib/use-grants";
 type GrantSortColumn = "name" | "funder" | "amount" | "dueDate" | "daysLeft" | "status";
 
 function grantStatusSortLabel(g: GrantItem): string {
+  if (g.status === "archived") return "Archived";
   if (g.status === "to_apply") return "To apply";
   if (g.fundingResult === "funded") return "Funded";
   if (g.fundingResult === "not_funded") return "Not funded";
@@ -383,7 +384,7 @@ export default function GrantsPage() {
   const [dueDate, setDueDate] = useState("");
   const [focus, setFocus] = useState("");
   const [notes, setNotes] = useState("");
-  const [status, setStatus] = useState<"to_apply" | "applied">("to_apply");
+  const [status, setStatus] = useState<"to_apply" | "applied" | "archived">("to_apply");
   const [fundingResult, setFundingResult] = useState<"pending" | "funded" | "not_funded">("pending");
 
   const grantsToApply = useMemo(
@@ -400,8 +401,19 @@ export default function GrantsPage() {
       ),
     [grants, sortColumn, sortDir],
   );
-  const totalPotential = grants.reduce((sum, grant) => sum + grant.potentialAmount, 0);
-  const fundedCount = grants.filter((grant) => grant.fundingResult === "funded").length;
+  const grantsArchived = useMemo(
+    () =>
+      [...grants.filter((grant) => grant.status === "archived")].sort((a, b) =>
+        compareGrantsByColumn(a, b, sortColumn, sortDir === "asc"),
+      ),
+    [grants, sortColumn, sortDir],
+  );
+  const activeGrants = useMemo(
+    () => grants.filter((g) => g.status !== "archived"),
+    [grants],
+  );
+  const totalPotential = activeGrants.reduce((sum, grant) => sum + grant.potentialAmount, 0);
+  const fundedCount = activeGrants.filter((grant) => grant.fundingResult === "funded").length;
 
   function formatFundingResult(result: "pending" | "funded" | "not_funded") {
     if (result === "funded") return "Funded";
@@ -415,11 +427,16 @@ export default function GrantsPage() {
     return "bg-amber-100 text-amber-800";
   }
 
-  function statusPillClass(status: "to_apply" | "applied") {
-    return status === "to_apply" ? "bg-sky-100 text-sky-800" : "bg-violet-100 text-violet-800";
+  function statusPillClass(status: "to_apply" | "applied" | "archived") {
+    if (status === "to_apply") return "bg-sky-100 text-sky-800";
+    if (status === "applied") return "bg-violet-100 text-violet-800";
+    return "bg-zinc-100 text-zinc-700";
   }
 
   function grantListStatusPill(grant: GrantItem) {
+    if (grant.status === "archived") {
+      return { label: "Archived", className: statusPillClass("archived") };
+    }
     if (grant.status === "to_apply") {
       return { label: "To apply", className: statusPillClass("to_apply") };
     }
@@ -498,7 +515,7 @@ export default function GrantsPage() {
       title="Grants"
       subtitle="Pipeline of grant opportunities, applications in progress, and potential funding."
     >
-      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-5">
         <article className="rounded-xl border border-zinc-200 bg-white p-3 sm:p-4">
           <p className="text-sm text-zinc-500">To apply</p>
           <p className="mt-1 text-2xl font-semibold text-zinc-900">{ready ? grantsToApply.length : "..."}</p>
@@ -506,6 +523,10 @@ export default function GrantsPage() {
         <article className="rounded-xl border border-zinc-200 bg-white p-3 sm:p-4">
           <p className="text-sm text-zinc-500">Applied</p>
           <p className="mt-1 text-2xl font-semibold text-zinc-900">{ready ? grantsApplied.length : "..."}</p>
+        </article>
+        <article className="rounded-xl border border-zinc-200 bg-white p-3 sm:p-4">
+          <p className="text-sm text-zinc-500">Archived</p>
+          <p className="mt-1 text-2xl font-semibold text-zinc-700">{ready ? grantsArchived.length : "..."}</p>
         </article>
         <article className="rounded-xl border border-zinc-200 bg-white p-3 sm:p-4">
           <p className="text-sm text-zinc-500">Total potential</p>
@@ -592,11 +613,12 @@ export default function GrantsPage() {
               <span className="text-zinc-600">Status</span>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as "to_apply" | "applied")}
+                onChange={(e) => setStatus(e.target.value as "to_apply" | "applied" | "archived")}
                 className="min-h-11 rounded-lg border border-zinc-200 px-3 py-2 text-base sm:min-h-0 sm:text-sm"
               >
                 <option value="to_apply">To apply</option>
                 <option value="applied">Applied</option>
+                <option value="archived">Archived</option>
               </select>
             </label>
             <label className="grid gap-1">
@@ -649,6 +671,24 @@ export default function GrantsPage() {
           sortDir={sortDir}
           onSort={handleGrantSort}
         />
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4 sm:p-5">
+        <h2 className="text-lg font-semibold text-zinc-900">Archived grants</h2>
+        <p className="mt-1 text-sm text-zinc-600">
+          Closed, withdrawn, or no longer pursued—kept for reference and out of active pipeline totals.
+        </p>
+        <div className="mt-4">
+          <GrantsTableBlock
+            grants={grantsArchived}
+            grantAcronym={grantAcronym}
+            formatDaysLeftToApply={formatDaysLeftToApply}
+            grantListStatusPill={grantListStatusPill}
+            sortColumn={sortColumn}
+            sortDir={sortDir}
+            onSort={handleGrantSort}
+          />
+        </div>
       </section>
     </AppShell>
   );

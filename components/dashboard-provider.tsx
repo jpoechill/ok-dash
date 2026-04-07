@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -74,12 +75,21 @@ function isLoginPath(path: string) {
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   const prevPathname = useRef<string | null>(null);
   const [snapshot, setSnapshot] = useState<AppSnapshot | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   const loadSnapshot = useCallback(async () => {
+    if (isLoginPath(pathnameRef.current)) {
+      setInitialized(true);
+      setLoadError(null);
+      setSnapshot(null);
+      return;
+    }
+    setLoadError(null);
     const res = await fetch("/api/data", fetchDataOptions);
     const data = (await res.json().catch(() => ({}))) as AppSnapshot & { error?: string };
     setInitialized(true);
@@ -92,16 +102,26 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setSnapshot(data as AppSnapshot);
   }, []);
 
+  /** First load: skip fetch while route is /login (avoids 401 flash); pathnameRef is read inside loadSnapshot. */
   useEffect(() => {
     void loadSnapshot();
   }, [loadSnapshot]);
 
-  /** Provider stays mounted across /login → app navigation; refetch after sign-in when cookie is present. */
+  /** If middleware sent us to /login after a failed GET on /, clear stale "Unauthorized" from the banner. */
   useEffect(() => {
+    if (!isLoginPath(pathname)) return;
+    setLoadError(null);
+    setSnapshot(null);
+    setInitialized(true);
+  }, [pathname]);
+
+  /** Refetch after client navigation from /login once cookie exists; layout effect clears stale error before paint. */
+  useLayoutEffect(() => {
     const prev = prevPathname.current;
     prevPathname.current = pathname;
     if (prev === null) return;
     if (isLoginPath(prev) && !isLoginPath(pathname)) {
+      setLoadError(null);
       void loadSnapshot();
     }
   }, [pathname, loadSnapshot]);

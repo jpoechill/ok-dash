@@ -40,7 +40,7 @@ export type GrantItem = {
   id: string;
   name: string;
   funder: string;
-  status: "to_apply" | "applied";
+  status: "to_apply" | "applied" | "archived";
   fundingResult: "pending" | "funded" | "not_funded";
   potentialAmount: number;
   dueDate: string;

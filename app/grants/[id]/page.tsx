@@ -42,8 +42,14 @@ export default function GrantDetailPage() {
       : grant.fundingResult === "not_funded"
         ? "Not funded"
         : "Pending";
-  const statusLabel = grant.status === "to_apply" ? "To apply" : "Applied";
-  const statusPillClass = grant.status === "to_apply" ? "bg-sky-100 text-sky-800" : "bg-violet-100 text-violet-800";
+  const statusLabel =
+    grant.status === "to_apply" ? "To apply" : grant.status === "applied" ? "Applied" : "Archived";
+  const statusPillClass =
+    grant.status === "to_apply"
+      ? "bg-sky-100 text-sky-800"
+      : grant.status === "applied"
+        ? "bg-violet-100 text-violet-800"
+        : "bg-zinc-100 text-zinc-700";
   const fundingPillClass =
     grant.fundingResult === "funded"
       ? "bg-emerald-100 text-emerald-800"
@@ -106,13 +112,16 @@ export default function GrantDetailPage() {
               <select
                 value={grant.status}
                 onChange={(e) =>
-                  updateGrant(grant.id, { status: e.target.value as "to_apply" | "applied" })
+                  updateGrant(grant.id, {
+                    status: e.target.value as "to_apply" | "applied" | "archived",
+                  })
                 }
                 className="w-full max-w-xs rounded-md border border-zinc-200 bg-white px-2 py-1.5 text-sm font-medium text-zinc-900"
                 aria-label="Application status"
               >
                 <option value="to_apply">To apply</option>
                 <option value="applied">Applied</option>
+                <option value="archived">Archived</option>
               </select>
             </dd>
           </div>
